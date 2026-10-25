@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bug Squash</title>
+<style>
+  :root {
+    --bg: #0D1117;
+    --panel: #11161d;
+    --cyan: #00F7FF;
+    --pink: #FF2E92;
+    --purple: #B084F9;
+    --text: #e8f6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .wrap {
+    width: min(94vw, 480px);
+    text-align: center;
+  }
+  h1 {
+    font-size: clamp(22px, 6vw, 30px);
+    margin: 0 0 4px;
+    color: var(--cyan);
+    text-shadow: 0 0 12px rgba(0,247,255,0.5);
+    letter-spacing: 1px;
+  }
+  .sub {
+    color: var(--purple);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    margin-bottom: 10px;
+    padding: 0 4px;
+  }
+  .hud span b { color: var(--pink); }
+  .board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: var(--panel);
+    border: 2px solid #1f2733;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0,247,255,0.05);
+  }
+  .bug {
+    position: absolute;
+    font-size: 30px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    transform: translate(-50%, -50%) scale(0);
+    animation: pop 0.15s ease forwards;
+    filter: drop-shadow(0 0 6px rgba(255,46,146,0.6));
+  }
+  @keyframes pop {
+    to { transform: translate(-50%, -50%) scale(1); }
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13,17,23,0.92);
+    gap: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 {
+    color: var(--cyan);
+    margin: 0;
+    font-size: 22px;
+  }
+  .overlay p { margin: 0; color: #aab4c0; font-size: 13px; max-width: 280px; }
+  button.start {
+    font-family: inherit;
+    font-size: 15px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    color: #0D1117;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  button.start:active { transform: scale(0.97); }
+  .footer {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #556070;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🐛 Bug Squash</h1>
+    <div class="sub">debug the grid before time runs out</div>
+    <div class="hud">
+      <span>Score: <b id="score">0</b></span>
+      <span>Time: <b id="time">30</b>s</span>
+    </div>
+    <div class="board" id="board">
+      <div class="overlay" id="overlay">
+        <h2>Ready to debug?</h2>
+        <p>Click the bugs as fast as you can before they crawl away. 30 seconds on the clock.</p>
+        <button class="start" id="startBtn">Start Game</button>
+      </div>
+    </div>
+    <div class="footer">made by aditya-codes078</div>
+  </div>
+
+<script>
+  const board = document.getElementById('board');
+  const overlay = document.getElementById('overlay');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+  const startBtn = document.getElementById('startBtn');
+
+  let score = 0;
+  let timeLeft = 30;
+  let spawnTimer = null;
+  let countdownTimer = null;
+  let currentBug = null;
+  let running = false;
+
+  function spawnBug() {
+    if (currentBug) currentBug.remove();
+    const bug = document.createElement('button');
+    bug.className = 'bug';
+    bug.textContent = '🐛';
+    const rect = board.getBoundingClientRect();
+    const pad = 36;
+    const x = pad + Math.random() * (rect.width - pad * 2);
+    const y = pad + Math.random() * (rect.height - pad * 2);
+    bug.style.left = x + 'px';
+    bug.style.top = y + 'px';
+    bug.addEventListener('click', () => {
+      score++;
+      scoreEl.textContent = score;
+      bug.remove();
+      currentBug = null;
+      clearTimeout(spawnTimer);
+      spawnTimer = setTimeout(spawnBug, 120);
+    });
+    board.appendChild(bug);
+    currentBug = bug;
+
+    const lifespan = Math.max(550, 1300 - score * 20);
+    spawnTimer = setTimeout(() => {
+      if (currentBug === bug) {
+        bug.remove();
+        currentBug = null;
+        spawnBug();
+      }
+    }, lifespan);
+  }
+
+  function startGame() {
+    score = 0;
+    timeLeft = 30;
+    scoreEl.textContent = score;
+    timeEl.textContent = timeLeft;
+    overlay.classList.add('hidden');
+    running = true;
+    spawnBug();
+    countdownTimer = setInterval(() => {
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+  }
+
+  function endGame() {
+    running = false;
+    clearInterval(countdownTimer);
+    clearTimeout(spawnTimer);
+    if (currentBug) { currentBug.remove(); currentBug = null; }
+    overlay.innerHTML = `
+      <h2>Time's up! 🎉</h2>
+      <p>You squashed <b style="color:#FF2E92">${score}</b> bugs.</p>
+      <button class="start" id="startBtn2">Play Again</button>
+    `;
+    overlay.classList.remove('hidden');
+    document.getElementById('startBtn2').addEventListener('click', startGame);
+  }
+
+  startBtn.addEventListener('click', startGame);
+</script>
+</body>
+</html>
